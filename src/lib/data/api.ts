@@ -353,7 +353,8 @@ export async function createMission(input: {
       vehicle_id: input.vehicleId,
       route_id: input.routeId,
       status: "queued",
-      started_at: new Date().toISOString(),
+      // started_at stays null until the mission actually transitions to
+      // in_progress; mapMission falls back to created_at for display.
       interventions_count: 0,
     })
     .select(MISSION_SELECT)
@@ -377,7 +378,18 @@ export async function updateMissionStatus(
   }
   if (status === "completed") {
     patch.completed_at = now;
-    patch.performance_score = 85 + Math.floor(Math.random() * 16);
+    // Deterministic score derived from mission data: start at 100 and dock 15
+    // points per operator intervention, floored at 40. Re-completing a mission
+    // yields the same score rather than random noise.
+    const { data: current } = await supabase
+      .from("missions")
+      .select("interventions_count")
+      .eq("id", id)
+      .maybeSingle();
+    const interventionCount =
+      (current as { interventions_count: number | null } | null)
+        ?.interventions_count ?? 0;
+    patch.performance_score = Math.max(40, 100 - 15 * interventionCount);
   }
   if (status === "aborted") {
     patch.completed_at = now;
@@ -453,6 +465,24 @@ export async function createIntervention(input: {
       started_at: new Date().toISOString(),
       outcome: "pending",
     })
+    .select(INTERVENTION_SELECT)
+    .single();
+  if (error) throw new Error(error.message);
+  return mapIntervention(data as InterventionRow);
+}
+
+export async function updateIntervention(
+  id: string,
+  input: { outcome: string; resolvedAt?: string | null }
+): Promise<InterventionItem> {
+  const { supabase } = await getCtx();
+  const { data, error } = await supabase
+    .from("interventions")
+    .update({
+      outcome: input.outcome,
+      resolved_at: input.resolvedAt ?? new Date().toISOString(),
+    })
+    .eq("id", id)
     .select(INTERVENTION_SELECT)
     .single();
   if (error) throw new Error(error.message);

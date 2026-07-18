@@ -14,31 +14,26 @@ import {
   listVehicles,
   listMissions,
   listBehaviorEvents,
-  listInterventions,
-  type InterventionItem,
 } from "@/lib/data/api";
 
 export default function AnalyticsPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [behaviorEvents, setBehaviorEvents] = useState<BehaviorEvent[]>([]);
-  const [interventions, setInterventions] = useState<InterventionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [v, m, e, i] = await Promise.all([
+        const [v, m, e] = await Promise.all([
           listVehicles(),
           listMissions(),
           listBehaviorEvents(200),
-          listInterventions(200),
         ]);
         setVehicles(v);
         setMissions(m);
         setBehaviorEvents(e);
-        setInterventions(i);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load analytics"
@@ -49,23 +44,17 @@ export default function AnalyticsPage() {
     })();
   }, []);
 
-  // Intervention rate per vehicle (interventions table + mission counts)
+  // Share of a vehicle's missions that required at least one intervention.
+  // A true percentage (0–100), derived from a single source (the mission's
+  // interventions_count), so it can never exceed 100%.
   const vehicleInterventionRates = vehicles.map((v) => {
     const vehicleMissions = missions.filter((m) => m.vehicleId === v.id);
-    const recordedInterventions = interventions.filter(
-      (i) => i.vehicleId === v.id
+    const missionsWithIntervention = vehicleMissions.filter(
+      (m) => m.interventions > 0
     ).length;
-    const countedOnMissions = vehicleMissions.reduce(
-      (sum, m) => sum + m.interventions,
-      0
-    );
-    const totalInterventions = Math.max(
-      recordedInterventions,
-      countedOnMissions
-    );
     const rate =
       vehicleMissions.length > 0
-        ? Math.round((totalInterventions / vehicleMissions.length) * 100)
+        ? Math.round((missionsWithIntervention / vehicleMissions.length) * 100)
         : 0;
     return { ...v, interventionRate: rate, missionCount: vehicleMissions.length };
   });

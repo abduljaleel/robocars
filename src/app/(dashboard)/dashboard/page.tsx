@@ -10,20 +10,20 @@ import {
   getStatusBadgeVariant,
   type Vehicle,
   type Mission,
-  type BehaviorEvent,
 } from "@/lib/data/fleet";
 import {
   getCurrentUser,
   listVehicles,
   listMissions,
-  listBehaviorEvents,
+  listInterventions,
   seedDemoData,
+  type InterventionItem,
 } from "@/lib/data/api";
 
 export default function DashboardPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
-  const [events, setEvents] = useState<BehaviorEvent[]>([]);
+  const [interventions, setInterventions] = useState<InterventionItem[]>([]);
   const [userLabel, setUserLabel] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -32,15 +32,15 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [v, m, e, user] = await Promise.all([
+      const [v, m, i, user] = await Promise.all([
         listVehicles(),
         listMissions(),
-        listBehaviorEvents(100),
+        listInterventions(200),
         getCurrentUser(),
       ]);
       setVehicles(v);
       setMissions(m);
-      setEvents(e);
+      setInterventions(i);
       setUserLabel(user.fullName || user.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load fleet data");
@@ -69,10 +69,8 @@ export default function DashboardPage() {
   const activeVehicles = vehicles.filter((v) => v.status === "active");
   const runningMissions = missions.filter((m) => m.status === "in_progress");
   const dayAgo = Date.now() - 24 * 3600 * 1000;
-  const interventionsToday = events.filter(
-    (e) =>
-      (e.severity === "warning" || e.severity === "critical") &&
-      new Date(e.timestamp).getTime() >= dayAgo
+  const interventionsToday = interventions.filter(
+    (i) => new Date(i.startedAt).getTime() >= dayAgo
   ).length;
   const fleetScore =
     vehicles.length > 0
@@ -134,7 +132,7 @@ export default function DashboardPage() {
             <MetricCard
               title="Interventions Today"
               value={String(interventionsToday)}
-              description="Warnings and critical events"
+              description="Operator interventions in last 24h"
             />
             <MetricCard
               title="Fleet Score"

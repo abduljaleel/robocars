@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -21,6 +22,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setInfo("");
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -41,6 +43,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError("");
+    setInfo("");
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -53,9 +56,8 @@ export default function LoginPage() {
       return;
     }
 
-    setError("");
     setLoading(false);
-    alert("Check your email for the login link!");
+    setInfo("Check your email for the login link.");
   }
 
   return (
@@ -70,6 +72,11 @@ export default function LoginPage() {
             {error && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
+              </div>
+            )}
+            {info && (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+                {info}
               </div>
             )}
             <div className="space-y-2">

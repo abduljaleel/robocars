@@ -30,12 +30,14 @@ import {
   type Mission,
   type BehaviorEvent,
 } from "@/lib/data/fleet";
+import { Button } from "@/components/ui/button";
 import {
   getVehicle,
   listMissionsForVehicle,
   listEventsForVehicle,
   listInterventionsForVehicle,
   updateVehicleStatus,
+  updateIntervention,
   deriveTelemetry,
   type InterventionItem,
 } from "@/lib/data/api";
@@ -51,6 +53,7 @@ export default function VehicleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingStatus, setSavingStatus] = useState(false);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -74,6 +77,25 @@ export default function VehicleDetailPage() {
       }
     })();
   }, [vehicleId]);
+
+  async function handleResolve(interventionId: string) {
+    setResolvingId(interventionId);
+    setError(null);
+    try {
+      const updated = await updateIntervention(interventionId, {
+        outcome: "resumed",
+      });
+      setInterventions((prev) =>
+        prev.map((i) => (i.id === interventionId ? updated : i))
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to resolve intervention"
+      );
+    } finally {
+      setResolvingId(null);
+    }
+  }
 
   async function handleStatusChange(status: VehicleStatus) {
     if (!vehicle || status === vehicle.status) return;
@@ -314,35 +336,57 @@ export default function VehicleDetailPage() {
                     <TableHead>Started</TableHead>
                     <TableHead>Resolved</TableHead>
                     <TableHead>Outcome</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {interventions.map((intervention) => (
-                    <TableRow key={intervention.id}>
-                      <TableCell className="font-medium capitalize">
-                        {intervention.type.replace(/_/g, " ")}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate text-sm">
-                        {intervention.reason}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                        {formatDate(intervention.startedAt)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                        {intervention.resolvedAt
-                          ? formatDate(intervention.resolvedAt)
-                          : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize text-xs">
-                          {(intervention.outcome ?? "pending").replace(/_/g, " ")}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {interventions.map((intervention) => {
+                    const isPending =
+                      !intervention.resolvedAt &&
+                      (intervention.outcome ?? "pending") === "pending";
+                    return (
+                      <TableRow key={intervention.id}>
+                        <TableCell className="font-medium capitalize">
+                          {intervention.type.replace(/_/g, " ")}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-sm">
+                          {intervention.reason}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {formatDate(intervention.startedAt)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {intervention.resolvedAt
+                            ? formatDate(intervention.resolvedAt)
+                            : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="capitalize text-xs">
+                            {(intervention.outcome ?? "pending").replace(/_/g, " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isPending ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={resolvingId === intervention.id}
+                              onClick={() => handleResolve(intervention.id)}
+                            >
+                              {resolvingId === intervention.id
+                                ? "Resolving…"
+                                : "Resolve"}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {interventions.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         No interventions recorded
                       </TableCell>
                     </TableRow>
